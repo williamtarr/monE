@@ -1,46 +1,47 @@
-import subprocess
-
-# Install necessary libraries
-subprocess.check_call(['pip', 'install', 'yfinance', 'pandas', 'requests'])
-
 import pandas as pd
 import yfinance as yf
-import requests
+from pytrends.request import TrendReq
 
-# Load search term data from Google Trends
-search_term = "example"  # Replace with the desired search term
-start_date = "2022-01-01"  # Replace with the desired start date
-end_date = "2022-01-02"  # Replace with the desired end date
+# Set up pytrends
+pytrends = TrendReq(hl='en-US', tz=360)
 
-# Define the stock symbol and time range
-symbol = "AAPL"  # Replace with the desired stock symbol
-start_date = "2022-01-01"  # Replace with the desired start date
-end_date = "2022-01-02"  # Replace with the desired end date
+# Define the search term and time range
+search_term = "AMZN"  # Replace with the desired search term
+start_date = "2020-10-01"  # Replace with the start date
+end_date = "2020-11-30"  # Replace with the end date
 
-# Fetch stock data from Yahoo Finance
-stock_data = yf.download(symbol, start=start_date, end=end_date)
+# Get Google Trends data
+pytrends.build_payload([search_term], timeframe=f"{start_date} {end_date}")
+search_data = pytrends.interest_over_time()
 
-# Save stock data to a CSV file
-stock_data.to_csv("stock_data.csv")
+# Reset index and rename columns
+search_data.reset_index(inplace=True)
+search_data.rename(columns={"date": "Day", search_term: "Search Frequency"}, inplace=True)
 
-# Fetch search term data from Google Trends
-url = f"https://trends.google.com/trends/explore?date={start_date}%20{end_date}&geo=CA&q={search_term}&hl=en"
+# Convert "Day" column to datetime format
+search_data["Day"] = pd.to_datetime(search_data["Day"])
 
-response = requests.get(url)
-search_data = pd.read_csv(response.text, skiprows=2, names=["Date", "SearchVolume"])
+# Fetch stock data using yfinance
+stock_symbol = "AMZN"  # Replace with the desired stock symbol
+stock_data = yf.download(stock_symbol, start=start_date, end=end_date, progress=False)
 
-# Preprocess the search term data
-# - Clean the data
-# - Align timestamps
-# - Handle missing values
+# Reset index of stock data and rename index column to "Day"
+stock_data.reset_index(inplace=True)
+stock_data.rename(columns={"Date": "Day"}, inplace=True)
 
-# Merge stock and search data based on common dates
-merged_data = pd.merge(stock_data, search_data, on='Date', how='inner')
+# Merge search data and stock data based on the "Day" column
+merged_data = pd.merge(search_data, stock_data, on="Day")
 
-# Calculate correlation (optional)
-correlation = merged_data['Close'].corr(merged_data['SearchVolume'])
-print(f"Correlation: {correlation}")
+# Display daily stock prices and search frequency
+daily_stock_prices = merged_data[["Day", "Close"]]
+daily_search_frequency = merged_data[["Day", "Search Frequency"]]
+correlation = daily_stock_prices["Close"].corr(daily_search_frequency["Search Frequency"])
 
-# Visualize the data and results using libraries like matplotlib or seaborn
-
-# Further analysis, refinement, and validation as per your requirements
+print("Daily Stock Prices:")
+print(daily_stock_prices)
+print()
+print("Daily Search Frequency:")
+print(daily_search_frequency)
+print()
+print("Correlation:")
+print(correlation)
