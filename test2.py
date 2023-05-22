@@ -62,6 +62,17 @@ def main():
     print("Correlations:")
     for term, correlation in correlations:
         print(f"{term}: {correlation}")
+    
+    # Sort correlations in descending order based on absolute values
+    correlations.sort(key=lambda x: abs(x[1]), reverse=True)
+
+    print("")
+    # Print the three terms with the highest correlation (absolute value)
+    print("Top 3 Search Terms with Highest Correlation:")
+    for term, correlation in correlations[:3]:
+        print(f"{term}: {correlation}")
+
+
 
 # Run the main function
 if __name__ == "__main__":
