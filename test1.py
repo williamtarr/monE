@@ -6,7 +6,7 @@ from pytrends.request import TrendReq
 pytrends = TrendReq(hl='en-US', tz=360)
 
 # Define the search term and time range
-search_term = "AMZN"  # Replace with the desired search term
+search_term = input("Enter the keyword you want to search on Google Trends: ")  # Replace with the desired search term
 start_date = "2020-10-01"  # Replace with the start date
 end_date = "2020-11-30"  # Replace with the end date
 
