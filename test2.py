@@ -1,28 +1,68 @@
 import pandas as pd
 import yfinance as yf
-from datetime import datetime
+from pytrends.request import TrendReq
 
-# Read the existing CSV file
-csv_file_path = "aaplOctQuarterly.csv"  # Replace with the actual file path of your CSV file
-search_data = pd.read_csv(csv_file_path, skiprows=3, names=["Day", "aapl: (Canada)"])
+# Set up pytrends
+pytrends = TrendReq(hl='en-US', tz=360)
 
-# Convert "Day" column to datetime format
-search_data["Day"] = pd.to_datetime(search_data["Day"], format="%Y-%m-%d")
+# Function to get Google Trends data for a specific search term
+def get_search_data(search_term, start_date, end_date):
+    pytrends.build_payload([search_term], timeframe=f"{start_date} {end_date}")
+    search_data = pytrends.interest_over_time()
+    search_data.reset_index(inplace=True)
+    search_data.rename(columns={"date": "Day", search_term: "Search Frequency"}, inplace=True)
+    search_data["Day"] = pd.to_datetime(search_data["Day"])
+    return search_data
 
-# Extract the desired time range
-start_date = datetime(2020, 10, 28)
-end_date = datetime(2020, 10, 30)
-search_data_range = search_data[(search_data["Day"] >= start_date) & (search_data["Day"] <= end_date)]
+# Function to calculate correlation between search frequency and stock prices
+def calculate_correlation(stock_data, search_data):
+    merged_data = pd.merge(search_data, stock_data, on="Day")
+    daily_stock_prices = merged_data[["Day", "Close"]]
+    daily_search_frequency = merged_data[["Day", "Search Frequency"]]
+    correlation = daily_stock_prices["Close"].corr(daily_search_frequency["Search Frequency"])
+    return correlation
 
-# Fetch stock data using yfinance
-stock_symbol = "AAPL"  # Replace with the desired stock symbol
-stock_data = yf.download(stock_symbol, start=start_date, end=end_date, progress=False)
+# Function to fetch stock data using yfinance
+def get_stock_data(stock_symbol, start_date, end_date):
+    stock_data = yf.download(stock_symbol, start=start_date, end=end_date, progress=False)
+    stock_data.reset_index(inplace=True)
+    stock_data.rename(columns={"Date": "Day"}, inplace=True)
+    return stock_data
 
-# Merge the search data and stock data on date
-merged_data = pd.merge(search_data_range, stock_data, left_on="Day", right_on=stock_data.index)
+# Main function
+def main():
+    # User input for stock symbol
+    stock_symbol = input("Enter the stock symbol: ")
+    
+    # User input for time range
+    #start_date = input("Enter the start date (YYYY-MM-DD): ")
+    #end_date = input("Enter the end date (YYYY-MM-DD): ")
+    start_date = "2020-10-01"  # Replace with the start date
+    end_date = "2020-10-10"  # Replace with the end date
+    
+    # Fetch stock data
+    stock_data = get_stock_data(stock_symbol, start_date, end_date)
+    
+    # Fetch the top 10 stock-related search terms
+    pytrends.build_payload([stock_symbol], timeframe=f"{start_date} {end_date}")
+    related_queries = pytrends.related_queries()
+    top_search_terms = related_queries[stock_symbol]['top']['query'].tolist()[:10]
+    
+    # Calculate correlation for each search term
+    correlations = []
+    for search_term in top_search_terms:
+        search_data = get_search_data(search_term, start_date, end_date)
+        correlation = calculate_correlation(stock_data, search_data)
+        correlations.append((search_term, correlation))
+    
+    # Sort correlations in descending order
+    correlations.sort(key=lambda x: x[1], reverse=True)
+    
+    # Print correlations
+    print("Correlations:")
+    for term, correlation in correlations:
+        print(f"{term}: {correlation}")
 
-# Calculate the correlation between search data and stock prices
-correlation = merged_data["aapl: (Canada)"].corr(merged_data["Close"])
-
-# Print the correlation value
-print(f"Correlation between search term 'AAPL' and stock prices: {correlation}")
+# Run the main function
+if __name__ == "__main__":
+    main()
